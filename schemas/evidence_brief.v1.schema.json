@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mnemokernel.local/schema/evidence_brief.v1.json",
+  "title": "MnemoKernel evidence brief v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "protocol", "recall_id", "scope_id", "reason", "brief", "summary", "items", "uncertainties"],
+  "properties": {
+    "status": {"enum": ["ok", "not_found", "declined", "error"]},
+    "protocol": {"const": "mnemokernel.v1"},
+    "recall_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "scope_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "reason": {"type": "string", "maxLength": 2000},
+    "brief": {"type": ["string", "null"], "maxLength": 800},
+    "summary": {"type": "string", "maxLength": 800},
+    "items": {
+      "type": "array", "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["memory_id", "statement", "confidence", "evidence_event_ids"],
+        "properties": {
+          "memory_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "statement": {"type": "string", "maxLength": 2000},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "evidence_event_ids": {
+            "type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+          }
+        }
+      }
+    },
+    "uncertainties": {
+      "type": "array", "maxItems": 16,
+      "items": {"type": "string", "maxLength": 500}
+    }
+  }
+}

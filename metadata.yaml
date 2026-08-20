@@ -1,0 +1,9 @@
+name: astrbot_plugin_mnemokernel
+display_name: MnemoKernel（忆核）
+short_desc: 模型按需申请、内核按证据重建，不向每轮上下文倾倒记忆
+version: v0.1.0-alpha.4
+astrbot_version: ">=4.5.7,<5"
+author: suluo
+desc: MnemoKernel（忆核）——证据驱动、按需回忆、受约束演化的 AstrBot 长期记忆内核
+repo: ""
+

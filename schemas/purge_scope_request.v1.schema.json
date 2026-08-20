@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mnemokernel.local/schema/purge_scope_request.v1.json",
+  "title": "MnemoKernel Purge Scope Request V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol", "scope", "actor_id", "reason"],
+  "properties": {
+    "protocol": {"const": "mnemokernel.v1"},
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform_id", "bot_account_id", "kind", "session_id", "persona_id"],
+      "properties": {
+        "platform_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "bot_account_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "kind": {"enum": ["private", "group"]},
+        "session_id": {"type": "string", "minLength": 1, "maxLength": 512},
+        "persona_id": {"type": "string", "minLength": 1, "maxLength": 256}
+      }
+    },
+    "actor_id": {"type": "string", "minLength": 1, "maxLength": 512},
+    "reason": {"type": "string", "minLength": 1, "maxLength": 2000}
+  }
+}

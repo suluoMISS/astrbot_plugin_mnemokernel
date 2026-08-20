@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mnemokernel.local/schema/raw_event.v1.json",
+  "title": "MnemoKernel raw event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol", "origin_kind", "occurred_time_source",
+    "platform_message_id_state", "source_key", "scope", "sender_account_id",
+    "sender_display_name", "sender_is_bot", "observed_at_ms",
+    "occurred_at_ms", "content", "mentions", "metadata"
+  ],
+  "properties": {
+    "protocol": {"const": "mnemokernel.v1"},
+    "origin_kind": {"enum": ["user_message", "bot_response"]},
+    "occurred_time_source": {"enum": ["platform", "observed_fallback"]},
+    "platform_message_id_state": {"enum": ["present", "missing"]},
+    "source_key": {"type": "string", "minLength": 1, "maxLength": 512},
+    "scope": {"$ref": "#/$defs/scope"},
+    "sender_account_id": {"type": "string", "minLength": 1, "maxLength": 512},
+    "sender_display_name": {"type": "string", "maxLength": 512},
+    "sender_is_bot": {"type": "boolean"},
+    "observed_at_ms": {"type": "integer", "minimum": 0},
+    "occurred_at_ms": {"type": "integer", "minimum": 0},
+    "content": {"type": "string", "maxLength": 100000},
+    "reply_to_source_key": {"type": ["string", "null"], "maxLength": 512},
+    "mentions": {
+      "type": "array", "maxItems": 64,
+      "items": {"type": "string", "maxLength": 512}
+    },
+    "metadata": {"type": "object"}
+  },
+  "$defs": {
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform_id", "bot_account_id", "kind", "session_id", "persona_id"],
+      "properties": {
+        "platform_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "bot_account_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "kind": {"enum": ["private", "group"]},
+        "session_id": {"type": "string", "minLength": 1, "maxLength": 512},
+        "persona_id": {"type": "string", "minLength": 1, "maxLength": 256}
+      }
+    }
+  }
+}

@@ -1,0 +1,2 @@
+"""MnemoKernel AstrBot plugin package."""
+

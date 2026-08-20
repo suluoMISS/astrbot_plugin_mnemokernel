@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mnemokernel.local/schema/retention_request.v1.json",
+  "title": "MnemoKernel Retention Request V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol", "scope", "cutoff_at_ms", "actor_id", "reason"],
+  "properties": {
+    "protocol": {"const": "mnemokernel.v1"},
+    "scope": {"$ref": "raw_event.v1.schema.json#/$defs/scope"},
+    "cutoff_at_ms": {"type": "integer", "minimum": 0},
+    "actor_id": {"type": "string", "minLength": 1, "maxLength": 512},
+    "reason": {"type": "string", "minLength": 1, "maxLength": 2000}
+  }
+}

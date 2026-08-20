@@ -1,0 +1,134 @@
+{
+  "general": {
+    "type": "object",
+    "description": "忆核总设置",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "description": "启用忆核",
+        "default": true,
+        "hint": "关闭后不采集事件，也不响应模型的回忆申请"
+      },
+      "diagnostic_logging": {
+        "type": "bool",
+        "description": "启用诊断日志",
+        "default": false,
+        "hint": "只记录状态、ID 与耗时，不记录消息正文"
+      }
+    }
+  },
+  "capture": {
+    "type": "object",
+    "description": "证据采集",
+    "hint": "默认关闭。启用后仅保存原始证据，不会自动形成长期记忆",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "description": "采集消息事件",
+        "default": false,
+        "obvious_hint": true
+      },
+      "capture_private": {
+        "type": "bool",
+        "description": "允许采集私聊",
+        "default": true
+      },
+      "group_allowlist": {
+        "type": "list",
+        "description": "群聊白名单",
+        "default": [],
+        "hint": "填写群会话 ID；空列表表示不采集任何群聊"
+      },
+      "max_content_chars": {
+        "type": "int",
+        "description": "单条消息最大字符数",
+        "default": 12000,
+        "hint": "超长正文会被拒绝而不是静默截断，避免证据哈希失真"
+      }
+    }
+  },
+  "recall": {
+    "type": "object",
+    "description": "按需回忆",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "description": "允许模型申请回忆",
+        "default": false,
+        "hint": "默认关闭；仅当用户打开且内核报告 recall_ready=true 时注册回忆工具"
+      },
+      "max_cues": {
+        "type": "int",
+        "description": "单次最多线索数",
+        "default": 8
+      },
+      "max_reason_chars": {
+        "type": "int",
+        "description": "申请理由最大字符数",
+        "default": 500
+      }
+    }
+  },
+  "diary": {
+    "type": "object",
+    "description": "每日日记",
+    "hint": "到达设定时间后，由该作用域的首条新消息补做上一日记；重启或重复消息不会生成副本",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "description": "启用日记整理",
+        "default": false,
+        "obvious_hint": true
+      },
+      "timezone": {
+        "type": "string",
+        "description": "日记时区",
+        "default": "Asia/Shanghai",
+        "hint": "使用 IANA 时区名，例如 Asia/Shanghai"
+      },
+      "daily_hour": {
+        "type": "int",
+        "description": "自动整理小时",
+        "default": 2,
+        "hint": "事件驱动的自动整理时间，范围 0-23"
+      },
+      "daily_minute": {
+        "type": "int",
+        "description": "自动整理分钟",
+        "default": 0,
+        "hint": "事件驱动的自动整理时间，范围 0-59"
+      }
+    }
+  },
+  "privacy": {
+    "type": "object",
+    "description": "隐私控制",
+    "hint": "私聊用户只能控制自己的作用域；群聊管理操作默认拒绝",
+    "items": {
+      "group_controller_ids": {
+        "type": "list",
+        "description": "群聊记忆管理员账号 ID",
+        "default": [],
+        "hint": "只有列表中的真实发送者账号可以在群聊执行 pause、resume、forget 和 maintain"
+      }
+    }
+  },
+  "storage": {
+    "type": "object",
+    "description": "可信存储",
+    "items": {
+      "database_filename": {
+        "type": "string",
+        "description": "SQLite 文件名",
+        "default": "mnemokernel.sqlite3",
+        "hint": "只能是文件名，数据库固定保存在本插件数据目录"
+      },
+      "retention_days": {
+        "type": "int",
+        "description": "原始正文保留天数",
+        "default": 14,
+        "hint": "只清除正文载荷，事件信封和日记证据 ID 保留；范围 1-3650"
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mnemokernel.local/schema/recall_request.v1.json",
+  "title": "MnemoKernel recall request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol", "scope", "need_type", "reason", "cues", "depth"],
+  "properties": {
+    "protocol": {"const": "mnemokernel.v1"},
+    "scope": {"$ref": "raw_event.v1.schema.json#/$defs/scope"},
+    "need_type": {
+      "enum": ["fact", "preference", "decision", "commitment", "relationship", "episode", "procedure"]
+    },
+    "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "cues": {
+      "type": "array", "minItems": 1, "maxItems": 24, "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 256}
+    },
+    "depth": {"enum": ["glance", "focused", "deep"]},
+    "time_hint": {"type": ["string", "null"], "maxLength": 256}
+  }
+}
+

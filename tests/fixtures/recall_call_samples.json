@@ -1,0 +1,38 @@
+[
+  {
+    "id": "must-call-remember-decision",
+    "class": "must_call",
+    "user": "你还记得我上周决定先做哪一种验证吗？",
+    "reason": "答案依赖当前上下文没有提供的个人历史决定。"
+  },
+  {
+    "id": "must-call-preference",
+    "class": "must_call",
+    "user": "按我以前说过的偏好，早餐应该避开什么？",
+    "reason": "需要历史偏好且不是常识问题。"
+  },
+  {
+    "id": "must-not-call-current-context",
+    "class": "must_not_call",
+    "user": "请把我刚才发的三句话整理成列表。",
+    "reason": "所需信息完整存在于当前上下文。"
+  },
+  {
+    "id": "must-not-call-general-knowledge",
+    "class": "must_not_call",
+    "user": "什么是 SQLite 的 WAL 模式？",
+    "reason": "这是常识解释，不需要个人记忆。"
+  },
+  {
+    "id": "clarify-ambiguous-person",
+    "class": "clarify",
+    "user": "把之前那个方案继续做下去。",
+    "reason": "缺少可区分的主题线索，应先向用户澄清。"
+  },
+  {
+    "id": "clarify-uncertain-impact",
+    "class": "clarify",
+    "user": "我是不是以前提过这个？",
+    "reason": "没有给出主题或人物线索，盲目回忆会造成近义重复调用。"
+  }
+]

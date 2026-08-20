@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mnemokernel.local/schema/scope_stats_request.v1.json",
+  "title": "MnemoKernel Scope Stats Request V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol", "scope"],
+  "properties": {
+    "protocol": {"const": "mnemokernel.v1"},
+    "scope": {"$ref": "raw_event.v1.schema.json#/$defs/scope"}
+  }
+}

@@ -1,0 +1,18 @@
+[package]
+name = "mnemokernel-py"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "_mnemokernel"
+crate-type = ["cdylib"]
+test = false
+doctest = false
+
+[dependencies]
+mnemokernel-core = { path = "../mnemokernel-core" }
+mnemokernel-store = { path = "../mnemokernel-store" }
+pyo3 = { workspace = true, features = ["abi3-py310"] }
+serde_json.workspace = true
+

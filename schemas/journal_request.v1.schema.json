@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mnemokernel.local/schema/journal_request.v1.json",
+  "title": "MnemoKernel daily journal request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol", "scope", "journal_date", "occurred_from_ms", "occurred_to_ms"],
+  "properties": {
+    "protocol": {"const": "mnemokernel.v1"},
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform_id", "bot_account_id", "kind", "session_id", "persona_id"],
+      "properties": {
+        "platform_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "bot_account_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "kind": {"enum": ["private", "group"]},
+        "session_id": {"type": "string", "minLength": 1, "maxLength": 512},
+        "persona_id": {"type": "string", "minLength": 1, "maxLength": 256}
+      }
+    },
+    "journal_date": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+    "occurred_from_ms": {"type": "integer", "minimum": 0},
+    "occurred_to_ms": {"type": "integer", "minimum": 1}
+  }
+}

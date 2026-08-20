@@ -1,0 +1,17 @@
+[build-system]
+requires = ["maturin>=1.14,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "mnemokernel-native"
+version = "0.1.0a4"
+description = "Trusted native kernel for the MnemoKernel AstrBot plugin"
+requires-python = ">=3.10"
+license = "AGPL-3.0-or-later"
+
+[tool.maturin]
+bindings = "pyo3"
+module-name = "_mnemokernel"
+manifest-path = "Cargo.toml"
+strip = true
+

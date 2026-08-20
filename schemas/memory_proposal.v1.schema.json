@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mnemokernel.local/schema/memory_proposal.v1.json",
+  "title": "MnemoKernel semantic memory proposal v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol", "proposal_id", "scope_id", "worker_id", "operations"],
+  "properties": {
+    "protocol": {"const": "mnemokernel.v1"},
+    "proposal_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "scope_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "worker_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "operations": {
+      "type": "array", "minItems": 1, "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["op", "memory_kind", "statement", "evidence_event_ids"],
+        "properties": {
+          "op": {"enum": ["create", "strengthen", "revise", "supersede", "archive"]},
+          "memory_id": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+          "memory_kind": {
+            "enum": ["fact", "preference", "decision", "commitment", "relationship", "episode", "procedure"]
+          },
+          "statement": {"type": "string", "minLength": 1, "maxLength": 2000},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "importance": {"type": "number", "minimum": 0, "maximum": 1},
+          "evidence_event_ids": {
+            "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+          },
+          "supersedes_memory_id": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+          "qualifiers": {"type": "object"}
+        }
+      }
+    }
+  }
+}
+

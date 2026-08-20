@@ -1,0 +1,5 @@
+# PyO3 0.29 recommends this build-time switch for extension modules.
+# It avoids linking libpython on Unix while keeping abi3 compatibility.
+[env]
+PYO3_BUILD_EXTENSION_MODULE = "1"
+

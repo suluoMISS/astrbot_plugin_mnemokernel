@@ -20,8 +20,9 @@ ROOT_FILES = (
     "metadata.yaml",
     "logo.png",
     "_conf_schema.json",
-   "README.md",
-   "SECURITY.md",
+    "README.md",
+    "SECURITY.md",
+    "CHANGELOG.md",
     "LICENSE",
 )
 TREE_PATTERNS = (

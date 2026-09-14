@@ -20,6 +20,7 @@ from .models import (
     OccurredTimeSource,
     OriginKind,
     PlatformMessageIdState,
+    PROTOCOL_VERSION,
     PurgeScopeRequest,
     RawEventInput,
     RecallDepth,
@@ -28,6 +29,7 @@ from .models import (
     ScopeDescriptor,
     ScopeStatsRequest,
     ScopeKind,
+    SCHEMA_VERSION,
 )
 
 __all__ = [
@@ -46,6 +48,7 @@ __all__ = [
     "OccurredTimeSource",
     "OriginKind",
     "PlatformMessageIdState",
+    "PROTOCOL_VERSION",
     "PurgeScopeRequest",
     "CapturePolicyAction",
     "CapturePolicyRequest",
@@ -56,6 +59,7 @@ __all__ = [
     "ScopeDescriptor",
     "ScopeStatsRequest",
     "ScopeKind",
+    "SCHEMA_VERSION",
     "event_is_recognized_command",
     "actor_id_from_event",
     "normalize_event",

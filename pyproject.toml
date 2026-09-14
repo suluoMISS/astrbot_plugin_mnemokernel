@@ -1,6 +1,6 @@
 [project]
 name = "astrbot-plugin-mnemokernel"
-version = "0.1.0a4"
+version = "0.1.0"
 description = "Evidence-grounded, on-demand long-term memory kernel for AstrBot"
 license = "AGPL-3.0-or-later"
 requires-python = ">=3.10"

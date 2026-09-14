@@ -8,6 +8,7 @@ from typing import Any, Mapping, Sequence
 
 
 PROTOCOL_VERSION = "mnemokernel.v1"
+SCHEMA_VERSION = 4
 
 
 class ScopeKind(str, Enum):

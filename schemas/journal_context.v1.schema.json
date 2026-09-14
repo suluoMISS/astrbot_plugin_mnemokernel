@@ -16,12 +16,13 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["event_id", "occurred_at_ms", "origin_kind", "sender_display_name", "content", "content_truncated"],
+        "required": ["event_id", "occurred_at_ms", "origin_kind", "sender_display_name", "reply_to_source_key", "content", "content_truncated"],
         "properties": {
           "event_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
           "occurred_at_ms": {"type": "integer", "minimum": 0},
           "origin_kind": {"enum": ["user_message", "bot_response"]},
           "sender_display_name": {"type": "string", "maxLength": 512},
+          "reply_to_source_key": {"type": ["string", "null"], "maxLength": 512},
           "content": {"type": "string", "maxLength": 2000},
           "content_truncated": {"type": "boolean"}
         }

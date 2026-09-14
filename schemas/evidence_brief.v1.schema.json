@@ -18,11 +18,14 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["memory_id", "statement", "confidence", "evidence_event_ids"],
+        "required": ["memory_id", "memory_kind", "statement", "confidence", "occurred_at_ms", "evidence_status", "evidence_event_ids"],
         "properties": {
           "memory_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "memory_kind": {"type": "string", "maxLength": 64},
           "statement": {"type": "string", "maxLength": 2000},
           "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "occurred_at_ms": {"type": "integer", "minimum": 0},
+          "evidence_status": {"enum": ["supported"]},
           "evidence_event_ids": {
             "type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true,
             "items": {"type": "string", "pattern": "^[a-f0-9]{64}$"}

@@ -10,6 +10,6 @@ Crates:
 - `mnemokernel-store`: transactional SQLite implementation;
 - `mnemokernel-py`: minimal PyO3 JSON bridge exposed as `_mnemokernel`.
 
-Run `cargo test --workspace` with a Rust toolchain. Building a distributable
-Python wheel will be added with the cross-platform CI milestone.
-
+Run `cargo test --workspace` with a Rust toolchain. The PyO3 crate is released
+as a Python 3.10+ ABI3 wheel for Linux x86_64 and Windows x86_64; the wheel
+also remains directly smoke-testable before it is bundled into an AstrBot ZIP.

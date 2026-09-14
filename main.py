@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -34,7 +34,26 @@ from .mnemokernel_adapter.events import scope_from_event
 from .mnemokernel_adapter.scheduling import due_journal_date
 
 
-VERSION = "v0.1.0-alpha.4"
+VERSION = "v0.1.0"
+BUILTIN_TIMEZONE_OFFSETS = {
+    "UTC": 0,
+    "Asia/Shanghai": 8,
+    "Asia/Singapore": 8,
+    "Asia/Tokyo": 9,
+    "Asia/Seoul": 9,
+    "Asia/Hong_Kong": 8,
+    "Asia/Taipei": 8,
+}
+
+
+def _configured_timezone(name: str):
+    try:
+        return ZoneInfo(name)
+    except Exception as exc:
+        offset_hours = BUILTIN_TIMEZONE_OFFSETS.get(name)
+        if offset_hours is None:
+            raise ValueError(f"日记时区无效：{name}") from exc
+        return timezone(timedelta(hours=offset_hours), name=name)
 
 
 def _extract_json_object(raw_text: str) -> dict[str, Any]:
@@ -113,7 +132,15 @@ class MnemoKernelPlugin(Star):
             await asyncio.gather(*tasks, return_exceptions=True)
         self._journal_tasks.clear()
         if self._kernel is not None:
-            await asyncio.to_thread(self._kernel.close)
+            try:
+                await asyncio.to_thread(self._kernel.close)
+            except Exception as exc:
+                # KernelClient closes its capability gate even when the native
+                # destructor fails; shutdown should remain best-effort too.
+                logger.warning(
+                    "[mnemokernel] 原生内核关闭时出现异常，已保持不可用状态："
+                    f"{type(exc).__name__}: {exc}"
+                )
 
     @staticmethod
     def _local_scope_key(scope: Any) -> str:
@@ -132,10 +159,7 @@ class MnemoKernelPlugin(Star):
 
     def _journal_request(self, event: Any, date_text: str = "") -> DailyJournalRequest:
         timezone_name = self._cfg.diary.timezone
-        try:
-            timezone = ZoneInfo(timezone_name)
-        except Exception as exc:
-            raise ValueError(f"日记时区无效：{timezone_name}") from exc
+        timezone = _configured_timezone(timezone_name)
         if date_text.strip():
             try:
                 target_date = datetime.strptime(date_text.strip(), "%Y-%m-%d").date()
@@ -650,7 +674,7 @@ class MnemoKernelPlugin(Star):
             scope, actor_id = self._control_identity(event)
         except PermissionError as exc:
             return f"[MnemoKernel] 拒绝操作：{exc}"
-        timezone = ZoneInfo(self._cfg.diary.timezone)
+        timezone = _configured_timezone(self._cfg.diary.timezone)
         cutoff = datetime.now(timezone) - timedelta(days=self._cfg.retention_days)
         result = await asyncio.to_thread(
             self._kernel.retain_payloads,
@@ -664,6 +688,7 @@ class MnemoKernelPlugin(Star):
         return (
             "[MnemoKernel] 保留期清理完成："
             f"清除正文 {result.get('purged_payloads', 0)} 条，"
+            f"激活度衰减 {result.get('decayed_memories', 0)} 张，"
             f"截止时间 {result.get('cutoff_at_ms')}，扫描={result.get('residual_scan', 'unknown')}。"
         )
 

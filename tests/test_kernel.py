@@ -169,6 +169,42 @@ class BrokenNativeModule:
             raise RuntimeError("ABI mismatch")
 
 
+class ProtocolMismatchNativeKernel(HealthyNativeKernel):
+    close_calls = 0
+
+    def health_json(self):
+        health = json.loads(super().health_json())
+        health["protocol"] = "mnemokernel.v0"
+        return json.dumps(health)
+
+    def close(self):
+        type(self).close_calls += 1
+
+
+class ProtocolMismatchNativeModule:
+    Kernel = ProtocolMismatchNativeKernel
+
+
+class SchemaMismatchNativeKernel(HealthyNativeKernel):
+    def health_json(self):
+        health = json.loads(super().health_json())
+        health["schema_version"] = 3
+        return json.dumps(health)
+
+
+class SchemaMismatchNativeModule:
+    Kernel = SchemaMismatchNativeKernel
+
+
+class CloseFailureNativeKernel(HealthyNativeKernel):
+    def close(self):
+        raise RuntimeError("native close failed")
+
+
+class CloseFailureNativeModule:
+    Kernel = CloseFailureNativeKernel
+
+
 def raw_event():
     return RawEventInput(
         origin_kind=OriginKind.USER_MESSAGE,
@@ -271,6 +307,32 @@ class KernelTests(unittest.TestCase):
         self.assertIn("ABI mismatch", client.status.detail)
         with self.assertRaises(KernelUnavailableError):
             client.ingest_event(raw_event())
+
+    def test_protocol_mismatch_fails_closed(self):
+        ProtocolMismatchNativeKernel.close_calls = 0
+        client = KernelClient.open(
+            Path("db.sqlite3"), native_module=ProtocolMismatchNativeModule
+        )
+        self.assertFalse(client.available)
+        self.assertIn("protocol mismatch", client.status.detail)
+        self.assertEqual(ProtocolMismatchNativeKernel.close_calls, 1)
+
+    def test_schema_mismatch_fails_closed(self):
+        client = KernelClient.open(
+            Path("db.sqlite3"), native_module=SchemaMismatchNativeModule
+        )
+        self.assertFalse(client.available)
+        self.assertIn("schema mismatch", client.status.detail)
+
+    def test_close_failure_still_marks_client_unavailable(self):
+        client = KernelClient.open(
+            Path("db.sqlite3"), native_module=CloseFailureNativeModule
+        )
+        with self.assertRaisesRegex(RuntimeError, "native close failed"):
+            client.close()
+        self.assertFalse(client.available)
+        with self.assertRaises(KernelUnavailableError):
+            client.health()
 
 
 if __name__ == "__main__":

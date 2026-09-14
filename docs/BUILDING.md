@@ -52,13 +52,14 @@ An earlier Schema 2 development baseline produced and imported:
     mnemokernel_native-0.1.0a1-cp310-abi3-manylinux_2_34_x86_64.whl
 
 That wheel predates the current Schema 4 sources and must not be shipped. The
-current alpha.4 wheel is generated under dist/native-current. The release ZIP
+current 0.1.0 wheel is generated under dist/native-current. The release ZIP
 bundles the ABI3 runtime extracted from that wheel, so AstrBot does not need to
 install a local requirement during plugin upload.
 
-Windows x86_64 remains gated on the workflow in
-.github/workflows/native.yml; a workflow file existing is not evidence that the
-hosted job has passed.
+Windows x86_64 is built with the pinned Rust toolchain plus the Visual Studio
+2022 C++ Build Tools workload. The resulting `win_amd64` wheel is smoke-tested
+with the same native harness. `scripts/package_release.py` detects the wheel
+platform and bundles the matching `.pyd` or `.so` runtime.
 
 The release ZIP may contain the verified ABI3 runtime under its private
 `native_runtime/` directory. Do not copy a raw .so, .dll, or .pyd into an

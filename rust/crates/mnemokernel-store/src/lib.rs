@@ -9,7 +9,7 @@ use mnemokernel_core::{
     RetentionRequest, SCHEMA_VERSION, ScopeStatsRequest, ValidationError, privacy_operation_id,
     recall_id,
 };
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde::Serialize;
 use std::collections::HashSet;
 use std::path::Path;
@@ -23,6 +23,8 @@ use crate::redaction::{redact, sanitize_metadata};
 const JOURNAL_EVENT_LIMIT: usize = 96;
 const JOURNAL_EVENT_CONTENT_LIMIT: usize = 2_000;
 const JOURNAL_CONTENT_BUDGET: usize = 64_000;
+const ACTIVATION_HALF_LIFE_MS: i64 = 30 * 24 * 60 * 60 * 1_000;
+const ACTIVATION_FLOOR: f64 = 0.05;
 
 #[derive(Debug, Error)]
 pub enum StoreError {
@@ -71,8 +73,11 @@ pub struct IngestOutcome {
 #[derive(Debug, Serialize)]
 pub struct RecallItem {
     pub memory_id: String,
+    pub memory_kind: String,
     pub statement: String,
     pub confidence: f64,
+    pub occurred_at_ms: i64,
+    pub evidence_status: &'static str,
     pub evidence_event_ids: Vec<String>,
 }
 
@@ -114,6 +119,7 @@ pub struct RetentionOutcome {
     pub run_id: String,
     pub cutoff_at_ms: i64,
     pub purged_payloads: usize,
+    pub decayed_memories: usize,
     pub residual_scan: &'static str,
 }
 
@@ -137,6 +143,7 @@ pub struct JournalEvent {
     pub occurred_at_ms: i64,
     pub origin_kind: String,
     pub sender_display_name: String,
+    pub reply_to_source_key: Option<String>,
     pub content: String,
     pub content_truncated: bool,
 }
@@ -393,7 +400,7 @@ impl KernelStore {
             .map_err(|_| StoreError::LockPoisoned)?;
         let mut statement = connection.prepare(
             "SELECT event.event_id, event.occurred_at_ms, event.origin_kind,
-                    payload.sender_display_name, payload.content
+                    payload.sender_display_name, event.reply_to_source_key, payload.content
              FROM raw_events AS event
              JOIN raw_event_payloads AS payload ON payload.event_id = event.event_id
              WHERE event.scope_id = ?1
@@ -406,7 +413,7 @@ impl KernelStore {
         let rows = statement.query_map(
             params![scope_id, request.occurred_from_ms, request.occurred_to_ms],
             |row| {
-                let content: String = row.get(4)?;
+                let content: String = row.get(5)?;
                 let (content, content_truncated) =
                     truncate_chars(&content, JOURNAL_EVENT_CONTENT_LIMIT);
                 Ok(JournalEvent {
@@ -414,6 +421,7 @@ impl KernelStore {
                     occurred_at_ms: row.get(1)?,
                     origin_kind: row.get(2)?,
                     sender_display_name: row.get(3)?,
+                    reply_to_source_key: row.get(4)?,
                     content,
                     content_truncated,
                 })
@@ -1047,6 +1055,7 @@ impl KernelStore {
                )",
             params![scope_id, completed_at_ms, request.cutoff_at_ms],
         )?;
+        let decayed_memories = decay_active_memories(&transaction, &scope_id, completed_at_ms)?;
         transaction.execute(
             "INSERT INTO payload_retention_runs(
                 run_id, cutoff_at_ms, payload_count, residual_scan,
@@ -1094,6 +1103,7 @@ impl KernelStore {
             run_id,
             cutoff_at_ms: request.cutoff_at_ms,
             purged_payloads,
+            decayed_memories,
             residual_scan,
         })
     }
@@ -1196,6 +1206,7 @@ impl KernelStore {
         #[derive(Debug)]
         struct Candidate {
             memory_id: String,
+            memory_kind: String,
             statement: String,
             confidence: f64,
             evidence_event_ids: Vec<String>,
@@ -1290,6 +1301,7 @@ impl KernelStore {
                 materialized_statements.insert(searchable);
                 candidates.push(Candidate {
                     memory_id,
+                    memory_kind,
                     statement: truncate_chars(&statement, 260).0,
                     confidence,
                     evidence_event_ids,
@@ -1332,16 +1344,18 @@ impl KernelStore {
                 cues_json_value,
                 open_loops_json,
             ) = row?;
-            if let Some((from_ms, to_ms)) = time_window
-                && (occurred_from_ms < from_ms || occurred_from_ms >= to_ms)
-            {
-                continue;
-            }
             let episode_text = normalize_recall_text(&format!(
                 "{title} {summary} {cues_json_value} {open_loops_json}"
             ));
             let episode_evidence = evidence_for_episode(&transaction, &episode_id, version)?;
             if episode_evidence.is_empty() {
+                continue;
+            }
+            let episode_occurred_at_ms =
+                latest_evidence_time(&transaction, &episode_evidence, occurred_from_ms)?;
+            if let Some((from_ms, to_ms)) = time_window
+                && (episode_occurred_at_ms < from_ms || episode_occurred_at_ms >= to_ms)
+            {
                 continue;
             }
             let searchable_episode =
@@ -1357,11 +1371,12 @@ impl KernelStore {
                 }
                 candidates.push(Candidate {
                     memory_id: episode_id,
+                    memory_kind: "episode".to_string(),
                     statement: truncate_chars(&format!("{title}：{summary}"), 260).0,
                     confidence: (0.60 + 0.08 * matched as f64).min(0.94),
                     evidence_event_ids: episode_evidence,
                     score: (matched as i64) * 100,
-                    occurred_from_ms,
+                    occurred_from_ms: episode_occurred_at_ms,
                 });
                 continue;
             }
@@ -1404,6 +1419,13 @@ impl KernelStore {
                 if evidence_event_ids.is_empty() {
                     continue;
                 }
+                let claim_occurred_at_ms =
+                    latest_evidence_time(&transaction, &evidence_event_ids, occurred_from_ms)?;
+                if let Some((from_ms, to_ms)) = time_window
+                    && (claim_occurred_at_ms < from_ms || claim_occurred_at_ms >= to_ms)
+                {
+                    continue;
+                }
                 let searchable = normalize_recall_text(&format!(
                     "{title} {summary} {cues_json_value} {open_loops_json} {claim_text} {}",
                     evidence_event_ids.join(" ")
@@ -1417,11 +1439,12 @@ impl KernelStore {
                 }
                 candidates.push(Candidate {
                     memory_id: claim_id,
+                    memory_kind: claim_kind,
                     statement: truncate_chars(&claim_text, 260).0,
                     confidence: (0.62 + 0.08 * matched as f64).min(0.96),
                     evidence_event_ids,
                     score: (matched as i64) * 100,
-                    occurred_from_ms,
+                    occurred_from_ms: claim_occurred_at_ms,
                 });
             }
         }
@@ -1444,8 +1467,11 @@ impl KernelStore {
             .into_iter()
             .map(|candidate| RecallItem {
                 memory_id: candidate.memory_id,
+                memory_kind: candidate.memory_kind,
                 statement: candidate.statement,
                 confidence: candidate.confidence,
+                occurred_at_ms: candidate.occurred_from_ms,
+                evidence_status: "supported",
                 evidence_event_ids: candidate.evidence_event_ids,
             })
             .collect::<Vec<_>>();
@@ -1468,9 +1494,11 @@ impl KernelStore {
                     .collect::<Vec<_>>()
                     .join("、");
                 text.push_str(&format!(
-                    "\n{}. {}（置信度 {:.0}%｜证据 {}）",
+                    "\n{}. {}（日期 {}｜类型 {}｜置信度 {:.0}%｜证据已支持：{}）",
                     index + 1,
                     item.statement,
+                    utc_date_from_unix_ms(item.occurred_at_ms),
+                    item.memory_kind,
                     item.confidence * 100.0,
                     evidence
                 ));
@@ -1520,6 +1548,66 @@ impl KernelStore {
             },
         })
     }
+}
+
+fn decay_active_memories(
+    transaction: &Transaction<'_>,
+    scope_id: &str,
+    now_ms: i64,
+) -> Result<usize, rusqlite::Error> {
+    let candidates: Vec<(String, f64, i64)> = {
+        let mut statement = transaction.prepare(
+            "SELECT memory_id, activation, updated_at_ms
+             FROM memory_atoms
+             WHERE scope_id = ?1 AND state = 'active'",
+        )?;
+        let rows = statement.query_map([scope_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, f64>(1)?,
+                row.get::<_, i64>(2)?,
+            ))
+        })?;
+        rows.collect::<Result<Vec<_>, _>>()?
+    };
+
+    let mut decayed = 0;
+    for (memory_id, activation, updated_at_ms) in candidates {
+        let elapsed_ms = now_ms.saturating_sub(updated_at_ms);
+        if elapsed_ms <= 0 || activation <= ACTIVATION_FLOOR {
+            continue;
+        }
+        let periods = elapsed_ms as f64 / ACTIVATION_HALF_LIFE_MS as f64;
+        let next_activation =
+            ACTIVATION_FLOOR + (activation - ACTIVATION_FLOOR) * 0.5_f64.powf(periods);
+        if next_activation + f64::EPSILON >= activation {
+            continue;
+        }
+        transaction.execute(
+            "UPDATE memory_atoms
+             SET activation = ?2, updated_at_ms = ?3
+             WHERE memory_id = ?1 AND scope_id = ?4 AND state = 'active'",
+            params![memory_id, next_activation, now_ms, scope_id],
+        )?;
+        decayed += 1;
+    }
+    Ok(decayed)
+}
+
+fn utc_date_from_unix_ms(timestamp_ms: i64) -> String {
+    let days = timestamp_ms.div_euclid(86_400_000);
+    let z = days + 719_468;
+    let era = (if z >= 0 { z } else { z - 146_096 }) / 146_097;
+    let day_of_era = z - era * 146_097;
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_prime = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
+    let month = month_prime + if month_prime < 10 { 3 } else { -9 };
+    let year = year + if month <= 2 { 1 } else { 0 };
+    format!("{year:04}-{month:02}-{day:02}")
 }
 
 fn normalize_recall_text(value: &str) -> String {
@@ -1577,6 +1665,27 @@ fn evidence_for_claim(
     )?;
     let rows = statement.query_map([claim_id], |row| row.get::<_, String>(0))?;
     rows.collect()
+}
+
+fn latest_evidence_time(
+    transaction: &rusqlite::Transaction<'_>,
+    event_ids: &[String],
+    fallback_ms: i64,
+) -> Result<i64, rusqlite::Error> {
+    let mut latest = fallback_ms;
+    for event_id in event_ids {
+        let occurred_at_ms: Option<i64> = transaction
+            .query_row(
+                "SELECT occurred_at_ms FROM raw_events WHERE event_id = ?1",
+                [event_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if let Some(occurred_at_ms) = occurred_at_ms {
+            latest = latest.max(occurred_at_ms);
+        }
+    }
+    Ok(latest)
 }
 
 fn evidence_for_memory(
@@ -1947,7 +2056,8 @@ mod tests {
     fn daily_journal_reads_topics_and_is_idempotent() {
         let path = temporary_database("daily-journal");
         let store = KernelStore::open(&path).unwrap();
-        let first = event_with("test:message-1", "项目整理完成", 1_000);
+        let mut first = event_with("test:message-1", "项目整理完成", 1_000);
+        first.reply_to_source_key = Some("test:message-parent".into());
         let second = event_with("test:message-2", "决定先做手动验证", 2_000);
         let first_id = store.ingest_event(&first).unwrap().event_id;
         let second_id = store.ingest_event(&second).unwrap().event_id;
@@ -1956,6 +2066,10 @@ mod tests {
         let context = store.journal_context(&request).unwrap();
         assert_eq!(context.status, "ok");
         assert_eq!(context.events.len(), 2);
+        assert_eq!(
+            context.events[0].reply_to_source_key.as_deref(),
+            Some("test:message-parent")
+        );
         let proposal = journal_proposal(&request, vec![first_id, second_id]);
         let saved = store
             .save_journal(
@@ -2083,7 +2197,12 @@ mod tests {
             .unwrap();
         assert_eq!(recall.status, "ok");
         assert_eq!(recall.items.len(), 1);
+        assert_eq!(recall.items[0].memory_kind, "fact");
+        assert_eq!(recall.items[0].occurred_at_ms, 1_000);
+        assert_eq!(recall.items[0].evidence_status, "supported");
         assert!(!recall.items[0].evidence_event_ids.is_empty());
+        assert!(recall.brief.as_ref().unwrap().contains("日期 1970-01-01"));
+        assert!(recall.brief.as_ref().unwrap().contains("类型 fact"));
         assert!(recall.brief.as_ref().unwrap().chars().count() <= 800);
 
         let unmatched = store
@@ -2332,6 +2451,61 @@ mod tests {
             .unwrap();
         assert_eq!(recall.status, "not_found");
 
+        drop(store);
+        let _ = fs::remove_file(&path);
+        let _ = fs::remove_file(path.with_extension("sqlite3-wal"));
+        let _ = fs::remove_file(path.with_extension("sqlite3-shm"));
+    }
+
+    #[test]
+    fn activation_decay_is_applied_during_maintenance() {
+        let path = temporary_database("activation-decay");
+        let store = KernelStore::open(&path).unwrap();
+        let first = event_with("test:decay-1", "长期偏好简洁", 1_000);
+        let second = event_with("test:decay-2", "已经完成项目整理", 2_000);
+        let first_id = store.ingest_event(&first).unwrap().event_id;
+        let second_id = store.ingest_event(&second).unwrap().event_id;
+        let request = journal_request(first.scope.clone());
+        let proposal = journal_proposal(&request, vec![first_id, second_id]);
+        store
+            .save_journal(
+                &request,
+                &proposal,
+                &serde_json::to_string(&proposal).unwrap(),
+            )
+            .unwrap();
+        let scope_id = first.scope.id().unwrap();
+        {
+            let connection = store.connection.lock().unwrap();
+            connection
+                .execute(
+                    "UPDATE memory_atoms
+                     SET activation = 1.0, updated_at_ms = 0
+                     WHERE scope_id = ?1",
+                    [&scope_id],
+                )
+                .unwrap();
+        }
+        let retention = store
+            .retain_payloads(&RetentionRequest {
+                protocol: PROTOCOL_VERSION.into(),
+                scope: first.scope,
+                cutoff_at_ms: 0,
+                actor_id: "user".into(),
+                reason: "activation decay test".into(),
+            })
+            .unwrap();
+        assert_eq!(retention.decayed_memories, 2);
+        let connection = store.connection.lock().unwrap();
+        let minimum_activation: f64 = connection
+            .query_row(
+                "SELECT MIN(activation) FROM memory_atoms WHERE scope_id = ?1",
+                [&scope_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(minimum_activation < 1.0);
+        drop(connection);
         drop(store);
         let _ = fs::remove_file(&path);
         let _ = fs::remove_file(path.with_extension("sqlite3-wal"));

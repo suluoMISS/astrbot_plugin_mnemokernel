@@ -30,9 +30,11 @@ loaded, memory is unavailable; there is no permissive fallback.
 - filesystem snapshots, third-party backups, and SSD wear levelling are outside
   the logical purge guarantee;
 - group membership is represented by a scope boundary, not yet by per-viewer ACLs;
-- stable memory cards are materialized from validated journal claims, but semantic
-  supersession and activation-decay workers are not implemented in this milestone;
-- wheel signing and a Windows CI result are not yet available.
+- stable memory cards are materialized from validated journal claims; semantic
+  supersession remains proposal-only and never uses an untrusted heuristic to
+  overwrite a personal fact;
+- wheel signing and hosted CI are not included in the local 0.1.0 release gate;
+  both Linux and Windows wheels are built and smoke-tested locally.
 
 Do not enable event capture for highly sensitive conversations until encryption,
 retention, export cleanup, and backup handling have been implemented and reviewed.

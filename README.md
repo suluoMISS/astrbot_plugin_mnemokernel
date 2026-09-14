@@ -2,7 +2,7 @@
 
 MnemoKernel 是一个面向 AstrBot 的长期记忆插件。它不把检索结果自动塞进每轮上下文，而是把记忆分成“线索、申请、重建、证据简报”四个阶段：模型只能申请回忆，可信内核负责决定范围、预算、证据和可见性。
 
-当前版本：`v0.1.0-alpha.4`（Linux x86_64 可安装验收版）
+当前版本：`v0.1.0`（Linux/Windows x86_64 可安装稳定版）
 
 ## 当前已经实现的边界
 
@@ -24,7 +24,7 @@ MnemoKernel 是一个面向 AstrBot 的长期记忆插件。它不把检索结�
 - `/mnemo stats`、`/mnemo maintain`：查看作用域统计、按保留期清理过期正文；
 - 日记 claim（含 `preference`）会通过稳定指纹物化为带证据的记忆卡；完全相同的 claim 只强化原卡，不产生副本；
 - Python/Rust 之间的 JSON v1 协议与 JSON Schema；
-- alpha4 已通过 32 项 Python 测试、23 项 Rust 测试、Rustfmt、Clippy、wheel 完整烟测和发布 ZIP 解包初始化烟测。
+- 0.1.0 已通过 37 项 Python 测试、24 项 Rust 测试、Rustfmt、Clippy、Windows wheel 完整烟测、Linux wheel 交叉构建与两平台发布 ZIP 内容验收。
 
 当前阶段不会把日记或 RAG 文本自动注入模型；模型只能提交候选提案，不能直接修改正式记忆。
 
@@ -55,19 +55,22 @@ docs/adr/                       架构决策记录
 - 群聊采集必须显式加入白名单；
 - 群聊的暂停、恢复、遗忘和保留期清理默认拒绝，必须配置真实发送者账号白名单；
 - 原生 Rust 扩展不存在或数据库不可用时，不建立 Python 旁路存储；
+- 原生扩展启动时必须报告匹配的协议与 Schema 版本；关闭异常也会立即切断 Python 侧能力；
 - 回忆结果只作为工具返回值进入当前推理，不写入长期上下文；
 - 回忆深度分别限制为 `glance=1/420 字`、`focused=2/620 字`、`deep=3/800 字`，只返回带事件证据 ID 的简报；
 - `/mnemo forget` 的确认只保存在进程内，并同时绑定作用域和真实操作者；Rust 清除会同步删除稳定记忆、边和审计记录。
 
-## 安装 alpha.4
+## 安装 0.1.0
 
-当前可安装包只面向 Linux x86_64、Python 3.10 及以上：
+当前可安装包面向 Linux x86_64 或 Windows x86_64、Python 3.10 及以上：
 
-1. 在 AstrBot 插件管理中上传 `astrbot_plugin_mnemokernel-v0.1.0-alpha.4-linux-x86_64.zip`；
+1. 在 AstrBot 插件管理中上传与系统匹配的 ZIP：
+   - Linux：`astrbot_plugin_mnemokernel-v0.1.0-linux-x86_64.zip`；
+   - Windows：`astrbot_plugin_mnemokernel-v0.1.0-windows-x86_64.zip`；
 2. 压缩包内已直接携带 ABI3 原生运行时，正常情况下不需要 AstrBot 安装任何 pip 依赖；`native/` 下的 wheel 仅作为手动安装和诊断备用件；
 3. 重载插件，先执行 `/mnemo doctor`；确认 Schema 为 4、三项能力均为 `true` 后，再按需打开采集、日记和回忆开关。
 
-Windows wheel 尚未在本机产出，不要在 Windows AstrBot 中安装这个 Linux 包。若当前机器的架构或 glibc 不兼容，插件会 fail-closed，普通聊天仍可运行。
+不要在 Windows AstrBot 中安装 Linux 包，也不要在 Linux AstrBot 中安装 Windows 包。若当前机器的架构、运行库或 glibc 不兼容，插件会 fail-closed，普通聊天仍可运行。
 
 ## 本地验证
 
@@ -94,4 +97,4 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 `recall_ready=true` 表示按需回忆的 native 检索闭环可用，但仍需在配置中显式打开
 `recall.enabled` 才会注册工具。
 
-仍需在个人 AstrBot 实例中验证真实消息适配器、模型调用判断和插件卸载；语义相近但措辞不同的记忆不会在 alpha.4 自动合并，避免错误覆盖个人事实。
+真实 AstrBot 收发钩子、模型调用判断和插件卸载仍建议在个人实例中做最终验收；0.1.0 保持保守记忆策略，不用未经证据支持的相似度启发式覆盖个人事实。

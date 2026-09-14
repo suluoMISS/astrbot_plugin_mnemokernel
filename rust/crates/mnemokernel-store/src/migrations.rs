@@ -2,7 +2,7 @@ use rusqlite::backup::Backup;
 use rusqlite::{Connection, OptionalExtension, params};
 use sha2::{Digest, Sha256};
 use std::ffi::OsString;
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, OpenOptions};
 use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -478,7 +478,7 @@ fn create_online_backup(
         }
         validate_database(&destination)?;
         drop(destination);
-        File::open(&backup_path)?.sync_all()?;
+        sync_file(&backup_path)?;
         Ok(())
     })();
     if let Err(error) = backup_result {
@@ -527,7 +527,7 @@ fn restore_backup(database_path: &Path, backup_path: &Path) -> Result<(), std::i
     ));
     let temporary_path = database_path.with_file_name(temporary_name);
     fs::copy(backup_path, &temporary_path)?;
-    File::open(&temporary_path)?.sync_all()?;
+    sync_file(&temporary_path)?;
 
     for sidecar in database_sidecars(database_path) {
         remove_if_exists(&sidecar)?;
@@ -555,6 +555,14 @@ fn remove_if_exists(path: &Path) -> Result<(), std::io::Error> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(error) => Err(error),
     }
+}
+
+fn sync_file(path: &Path) -> Result<(), std::io::Error> {
+    OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)?
+        .sync_all()
 }
 
 fn secure_remove(path: &Path) -> Result<(), std::io::Error> {

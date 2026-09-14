@@ -20,10 +20,12 @@ from .models import (
     CapturePolicyRequest,
     DailyJournalProposal,
     DailyJournalRequest,
+    PROTOCOL_VERSION,
     PurgeScopeRequest,
     RawEventInput,
     RecallRequest,
     RetentionRequest,
+    SCHEMA_VERSION,
     ScopeStatsRequest,
 )
 
@@ -103,12 +105,23 @@ class KernelClient:
         *,
         native_module: ModuleType | None = None,
     ) -> "KernelClient":
+        native = None
         try:
             module = native_module or _load_native_module()
             native = module.Kernel(str(database_path))
             health = json.loads(native.health_json())
             if health.get("status") != "ok":
                 raise RuntimeError("native health check did not return ok")
+            if health.get("protocol") != PROTOCOL_VERSION:
+                raise RuntimeError(
+                    "native protocol mismatch: "
+                    f"expected {PROTOCOL_VERSION}, got {health.get('protocol')!r}"
+                )
+            if health.get("schema_version") != SCHEMA_VERSION:
+                raise RuntimeError(
+                    "native schema mismatch: "
+                    f"expected {SCHEMA_VERSION}, got {health.get('schema_version')!r}"
+                )
             return cls(
                 native,
                 KernelStatus(
@@ -119,6 +132,13 @@ class KernelClient:
                 ),
             )
         except Exception as exc:  # Import, ABI, migration, or database failure.
+            if native is not None and hasattr(native, "close"):
+                try:
+                    native.close()
+                except Exception:
+                    # Preserve the initialization failure; the client is
+                    # already being returned in a fail-closed state.
+                    pass
             detail = f"{type(exc).__name__}: {exc}"
             return cls(None, KernelStatus(available=False, detail=detail))
 
@@ -228,12 +248,17 @@ class KernelClient:
 
     def close(self) -> None:
         with self._lock:
-            if self._native is not None and hasattr(self._native, "close"):
-                self._native.close()
-            self._native = None
-            self._status = KernelStatus(
-                available=False,
-                detail="native kernel closed",
-                protocol=self._status.protocol,
-            )
+            native = self._native
+            try:
+                if native is not None and hasattr(native, "close"):
+                    native.close()
+            finally:
+                # Even a broken native destructor must not leave the Python
+                # shell believing that memory operations are still available.
+                self._native = None
+                self._status = KernelStatus(
+                    available=False,
+                    detail="native kernel closed",
+                    protocol=self._status.protocol,
+                )
 

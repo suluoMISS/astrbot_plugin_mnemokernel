@@ -5,9 +5,12 @@ from __future__ import annotations
 import argparse
 import asyncio
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 import importlib
+import json
 import sys
 import tempfile
+import time
 import types
 from pathlib import Path
 from typing import Any, Generic, TypeVar
@@ -58,6 +61,30 @@ def install_astrbot_shell(data_directory: Path) -> list[Any]:
     class Context:
         def add_llm_tools(self, *tools: Any) -> None:
             context_tools.extend(tools)
+
+        async def llm_generate(self, **kwargs: Any) -> dict[str, str]:
+            prompt = str(kwargs["prompt"])
+            context = json.loads(prompt.split("事件上下文：", 1)[1])
+            evidence_event_ids = [
+                event["event_id"] for event in context.get("events", []) if event.get("event_id")
+            ]
+            if not evidence_event_ids:
+                raise AssertionError("package smoke model received no journal evidence")
+            proposal = {
+                "title": "Package smoke journal",
+                "summary": "Package smoke exercised the real plugin hook path.",
+                "cues": ["package smoke"],
+                "open_loops": [],
+                "claims": [
+                    {
+                        "claim_kind": "fact",
+                        "claim_text": "Package smoke evidence was stored.",
+                        "epistemic_status": "assistant_inferred",
+                        "evidence_event_ids": [evidence_event_ids[0]],
+                    }
+                ],
+            }
+            return {"completion_text": json.dumps(proposal)}
 
     context_tools.clear()
 
@@ -127,14 +154,79 @@ async def exercise(package_directory: Path, data_directory: Path) -> None:
     context_tools = install_astrbot_shell(data_directory)
     sys.path.insert(0, str(package_directory.parent))
     module = importlib.import_module(f"{package_directory.name}.main")
+
+    class Plain:
+        def __init__(self, text: str):
+            self.text = text
+
+    class Result:
+        result_content_type = "llm_result"
+
+        def __init__(self, text: str):
+            self.chain = [Plain(text)]
+
+        def get_plain_text(self) -> str:
+            return " ".join(component.text for component in self.chain)
+
+    class Message:
+        def __init__(self):
+            self.message_id = "package-inbound"
+            self.timestamp = int(time.time())
+            self.message = [Plain("package smoke inbound")]
+            self.reply_to_message_id = None
+
+    class Event:
+        def __init__(self):
+            self.message_obj = Message()
+            self.message_str = "package smoke inbound"
+            self.unified_msg_origin = "smoke:FriendMessage:user-1"
+            self._extras: dict[str, Any] = {}
+            self._result = Result("package smoke outbound")
+
+        def get_platform_id(self) -> str:
+            return "smoke"
+
+        def get_sender_id(self) -> str:
+            return "user-1"
+
+        def get_sender_name(self) -> str:
+            return "Smoke User"
+
+        def get_self_id(self) -> str:
+            return "bot-1"
+
+        def get_self_name(self) -> str:
+            return "Smoke Bot"
+
+        def get_group_id(self) -> str:
+            return ""
+
+        def get_extra(self, key: str | None = None, default: Any = None) -> Any:
+            if key is None:
+                return self._extras
+            return self._extras.get(key, default)
+
+        def set_extra(self, key: str, value: Any) -> None:
+            self._extras[key] = value
+
+        def get_result(self) -> Result:
+            return self._result
+
+    event = Event()
+    journal_date = datetime.now(timezone.utc).date().isoformat()
     context = module.Context()
     plugin = module.MnemoKernelPlugin(
         context,
         {
             "general": {"enabled": True},
-            "capture": {"enabled": False},
+            "capture": {"enabled": True, "capture_private": True},
             "recall": {"enabled": True},
-            "diary": {"enabled": False},
+            "diary": {
+                "enabled": True,
+                "timezone": "UTC",
+                "daily_hour": 23,
+                "daily_minute": 59,
+            },
             "storage": {"database_filename": "package-smoke.sqlite3"},
         },
     )
@@ -144,6 +236,21 @@ async def exercise(package_directory: Path, data_directory: Path) -> None:
     assert plugin._kernel.health()["schema_version"] == 4
     assert len(context_tools) == 1
     assert context_tools[0].name == "recollect"
+    await plugin.capture_message(event)
+    await plugin.capture_sent_message(event)
+    summary = await plugin._summarize_journal(event, journal_date, include_summary=False)
+    assert "日记已生成" in summary
+    journal = await plugin._read_journal(event, journal_date)
+    assert "Package smoke journal" in journal
+    recall = await plugin._recollect_text(
+        event,
+        need_type="fact",
+        reason="验证发布包回忆链路",
+        cues=["package smoke"],
+    )
+    assert "日期" in recall and "类型 fact" in recall and "证据已支持" in recall
+    maintenance = await plugin._maintain_scope(event)
+    assert "保留期清理完成" in maintenance
     await plugin.terminate()
     assert not plugin._kernel.available
     assert (data_directory / "package-smoke.sqlite3").is_file()

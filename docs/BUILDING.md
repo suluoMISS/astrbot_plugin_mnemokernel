@@ -61,7 +61,8 @@ Windows x86_64 is built with the pinned Rust toolchain plus the Visual Studio
 with the same native harness. `scripts/package_release.py` detects the wheel
 platform and bundles the matching `.pyd` or `.so` runtime.
 
-The release ZIP may contain the verified ABI3 runtime under its private
-`native_runtime/` directory. Do not copy a raw .so, .dll, or .pyd into an
-unrelated AstrBot installation; use the generated ZIP or wheel and retain its
-checksum/provenance.
+The release ZIP contains the verified ABI3 runtime under its private
+`native_runtime/` directory and deliberately omits `requirements.txt`, so an
+AstrBot upload does not reinstall the same binary from the network. Do not copy
+a raw .so, .dll, or .pyd into an unrelated AstrBot installation; use the
+generated ZIP or wheel and retain its checksum/provenance.

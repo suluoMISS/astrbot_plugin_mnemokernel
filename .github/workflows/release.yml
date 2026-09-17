@@ -57,11 +57,6 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: dist
-      - name: Make checksum asset names unique
-        shell: bash
-        run: |
-          mv dist/mnemokernel-release-ubuntu-latest/SHA256SUMS dist/mnemokernel-release-ubuntu-latest/SHA256SUMS-linux-x86_64
-          mv dist/mnemokernel-release-windows-latest/SHA256SUMS dist/mnemokernel-release-windows-latest/SHA256SUMS-windows-x86_64
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -74,5 +69,5 @@ jobs:
 
             请根据 AstrBot 运行平台选择对应的 `astrbot_plugin_mnemokernel-*.zip`。完整 ZIP 内含匹配平台的原生运行时和 wheel，安装时会校验并自动修复缺失的 runtime 文件。
           files: |
-            dist/mnemokernel-release-ubuntu-latest/*
-            dist/mnemokernel-release-windows-latest/*
+            dist/mnemokernel-release-ubuntu-latest/*.zip
+            dist/mnemokernel-release-windows-latest/*.zip

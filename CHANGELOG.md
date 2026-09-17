@@ -28,6 +28,7 @@
 - 安装或热重载时若发现旧的 `_mnemokernel`，优先切换到包内 runtime；若 `native_runtime` 缺失，则从包内匹配平台 wheel 自动修复。
 - 从 GitHub 源码安装时由 `requirements.txt` 自动选择 Linux/Windows ABI3 wheel。
 - GitHub 源码内置两个平台的 v0.1.1 wheel；即使插件页跳过依赖安装，也能在启动时离线修复 `native_runtime`。
+- 平台 ZIP 不再携带 `requirements.txt`，避免 AstrBot 上传安装时重复联网安装已经内置的原生运行时。
 - 旧版 AstrBot 不支持 Plugin Pages 时，原有聊天命令仍可继续使用。
 
 ### 当前限制

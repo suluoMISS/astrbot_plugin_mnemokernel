@@ -13,7 +13,8 @@ MnemoKernel 是一个面向 AstrBot 的长期记忆插件。它不把检索结�
 
 本功能需要与源码一起发布的新原生内核；已有 v0.1.0 wheel 不包含浏览接口。
 从 AstrBot 插件页面或 GitHub 源码安装时，`requirements.txt` 会选择匹配平台的 v0.1.1 wheel；
-上传完整 v0.1.1 ZIP 时，插件还会在启动时校验并从包内 wheel 自动修复缺失的 `native_runtime`。
+仓库同时保留 `native/` 下的两个平台 wheel，因此即使依赖安装被跳过，插件也会在启动时自动修复原生运行时。
+上传完整 v0.1.1 ZIP 时，插件同样会校验并从包内 wheel 自动修复缺失的 `native_runtime`。
 仅复制 HTML/Python 文件时，页面会提示升级完整安装包，不会绕过内核直接读取 SQLite。
 旧 AstrBot 不支持页面接口时，原有聊天命令继续工作。
 

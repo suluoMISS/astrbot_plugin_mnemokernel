@@ -27,6 +27,7 @@
 - v0.1.0 的 Schema 4 数据无需删除或手工迁移；v0.1.1 会沿用并校验现有数据库。
 - 安装或热重载时若发现旧的 `_mnemokernel`，优先切换到包内 runtime；若 `native_runtime` 缺失，则从包内匹配平台 wheel 自动修复。
 - 从 GitHub 源码安装时由 `requirements.txt` 自动选择 Linux/Windows ABI3 wheel。
+- GitHub 源码内置两个平台的 v0.1.1 wheel；即使插件页跳过依赖安装，也能在启动时离线修复 `native_runtime`。
 - 旧版 AstrBot 不支持 Plugin Pages 时，原有聊天命令仍可继续使用。
 
 ### 当前限制

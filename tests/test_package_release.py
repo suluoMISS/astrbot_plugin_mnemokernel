@@ -22,6 +22,15 @@ class ReleaseProfileTests(unittest.TestCase):
                 Path("mnemokernel_native-0.1.1-cp310-abi3-manylinux_aarch64.whl")
             )
 
+    def test_source_tree_contains_offline_repair_wheels(self):
+        native = Path("native")
+        self.assertTrue(
+            (native / "mnemokernel_native-0.1.1-cp310-abi3-manylinux_2_34_x86_64.whl").is_file()
+        )
+        self.assertTrue(
+            (native / "mnemokernel_native-0.1.1-cp310-abi3-win_amd64.whl").is_file()
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

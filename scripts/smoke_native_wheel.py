@@ -5,10 +5,12 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
-import subprocess
+import shutil
 import sys
 import tempfile
+import zipfile
 from pathlib import Path
+from pathlib import PurePosixPath
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,7 +22,7 @@ def main() -> int:
     parser.add_argument(
         "--unpacked-directory",
         type=Path,
-        help="import an already unpacked wheel instead of installing it with pip",
+        help="import an already unpacked wheel instead of extracting it to a temporary directory",
     )
     args = parser.parse_args()
 
@@ -30,21 +32,26 @@ def main() -> int:
             f"expected exactly one wheel in {args.wheel_directory}, found {len(wheels)}"
         )
 
+    install_directory: Path | None = None
     if args.unpacked_directory is not None:
         sys.path.insert(0, str(args.unpacked_directory.resolve()))
     else:
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "pip",
-                "install",
-                "--force-reinstall",
-                "--no-deps",
-                str(wheels[0]),
-            ],
-            check=True,
-        )
+        # Import from an isolated extraction directory. This tests the wheel
+        # payload without mutating shared site-packages, depending on pip, or
+        # colliding with a locked older extension on Windows.
+        install_directory = Path(tempfile.mkdtemp(prefix="mnemokernel-wheel-install-"))
+        with zipfile.ZipFile(wheels[0]) as archive:
+            for member in archive.infolist():
+                name = PurePosixPath(member.filename)
+                if name.is_absolute() or ".." in name.parts or not name.parts:
+                    raise RuntimeError(f"unsafe wheel member: {member.filename}")
+                if member.is_dir():
+                    continue
+                destination = install_directory.joinpath(*name.parts)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(archive.read(member))
+        sys.path.insert(0, str(install_directory))
+    sys.modules.pop("_mnemokernel", None)
     importlib.invalidate_caches()
     native = importlib.import_module("_mnemokernel")
 
@@ -276,6 +283,8 @@ def main() -> int:
         assert secret.encode() not in database.read_bytes()
 
     print(json.dumps(health, sort_keys=True))
+    if install_directory is not None:
+        shutil.rmtree(install_directory, ignore_errors=True)
     return 0
 
 

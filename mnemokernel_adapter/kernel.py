@@ -35,34 +35,39 @@ class KernelUnavailableError(RuntimeError):
 
 
 def _load_native_module() -> ModuleType:
-    """Load the installed extension, or the bundled release runtime.
+    """Load the bundled release runtime, or the installed extension.
 
-    AstrBot installs plugin requirements into a shared target directory. A local
-    wheel can fail there for platform or installer reasons, so the release ZIP
-    also carries the exact ABI3 runtime under ``native_runtime``. The fallback
-    keeps normal chat usable even when that binary cannot load.
+    AstrBot installs plugin requirements into a shared target directory, which
+    can still contain an older extension after a plugin update. The release ZIP
+    carries its exact ABI3 runtime under ``native_runtime`` and must take
+    precedence so Python code and native protocol stay in lockstep. The
+    installed extension remains a development fallback when no bundled runtime
+    exists or the bundled binary cannot load.
     """
-    try:
-        return importlib.import_module("_mnemokernel")
-    except (ImportError, OSError) as installed_error:
-        sys.modules.pop("_mnemokernel", None)
-        runtime_dir = Path(__file__).resolve().parents[1] / "native_runtime"
-        if not runtime_dir.is_dir():
-            raise installed_error
-
+    runtime_dir = Path(__file__).resolve().parents[1] / "native_runtime"
+    bundled_error: Exception | None = None
+    if runtime_dir.is_dir():
         runtime_path = str(runtime_dir)
         sys.path.insert(0, runtime_path)
         importlib.invalidate_caches()
         try:
             return importlib.import_module("_mnemokernel")
-        except Exception:
+        except (ImportError, OSError) as exc:
+            bundled_error = exc
             sys.modules.pop("_mnemokernel", None)
-            raise installed_error
         finally:
             try:
                 sys.path.remove(runtime_path)
             except ValueError:
                 pass
+
+    try:
+        return importlib.import_module("_mnemokernel")
+    except (ImportError, OSError) as installed_error:
+        sys.modules.pop("_mnemokernel", None)
+        if bundled_error is not None:
+            raise bundled_error from installed_error
+        raise
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,6 +250,18 @@ class KernelClient:
         with self._lock:
             native = self._require_native()
             return self._decode(native.health_json())
+
+    @property
+    def inspector_available(self) -> bool:
+        with self._lock:
+            return self.available and callable(getattr(self._native, "inspect_json", None))
+
+    def inspect(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        with self._lock:
+            native = self._require_native()
+            if not self.inspector_available:
+                raise KernelUnavailableError("原生内核版本过旧，请安装包含数据库浏览接口的新版本安装包。")
+            return self._decode(native.inspect_json(json.dumps(payload, ensure_ascii=False)))
 
     def close(self) -> None:
         with self._lock:

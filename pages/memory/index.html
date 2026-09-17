@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>忆核 · 记忆浏览</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main>
+    <header><div><p class="eyebrow">MNEMOKERNEL</p><h1>记忆浏览</h1><p>查看已保存的经历、日记与记忆，了解忆核正在记住什么。</p></div><button id="refresh">刷新状态</button></header>
+    <section class="panel"><h2>运行状态</h2><div id="status" role="status">正在连接 AstrBot…</div><p id="database" class="muted"></p></section>
+    <section class="panel">
+      <form id="scope-form"><label for="scope-query">查找会话</label><div class="row"><input id="scope-query" maxlength="100" placeholder="平台、会话 ID 或人格"><button>查找</button></div></form>
+      <label for="scope">选择会话</label><select id="scope"><option value="">正在读取…</option></select>
+      <div class="pager"><button id="scope-prev" disabled>上一页会话</button><span id="scope-count"></span><button id="scope-next" disabled>下一页会话</button></div>
+    </section>
+    <section class="panel">
+      <form id="search-form" class="row"><label for="collection">数据分类</label><select id="collection"><option value="memories">稳定记忆</option><option value="journals">每日日记</option><option value="events">采集记录</option><option value="recalls">回忆记录</option></select><input id="query" aria-label="搜索内容" maxlength="100" placeholder="搜索内容（最多 100 字）"><button>搜索</button></form>
+      <p id="notice" role="status" aria-live="polite"></p>
+      <div id="records"></div>
+      <div class="pager"><button id="prev" disabled>上一页</button><span id="count"></span><button id="next" disabled>下一页</button></div>
+    </section>
+    <footer>仅供 AstrBot 管理员查看 · 只读页面 · 数据不会发送给模型。采集开关请在插件配置中调整。</footer>
+  </main>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

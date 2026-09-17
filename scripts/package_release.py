@@ -56,6 +56,10 @@ ROOT_FILES = (
     "LICENSE",
 )
 TREE_PATTERNS = (
+    ("pages", "*/*.html"),
+    ("pages", "*/*.js"),
+    ("pages", "*/*.css"),
+    (".astrbot-plugin/i18n", "*.json"),
     ("mnemokernel_adapter", "*.py"),
     ("migrations", "*.sql"),
     ("schemas", "*.json"),

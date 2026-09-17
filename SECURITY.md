@@ -26,6 +26,13 @@ loaded, memory is unavailable; there is no permissive fallback.
 
 ## Known limitations
 
+The read-only Plugin Page is an administrator interface: authenticated AstrBot
+Dashboard users can select any stored scope. It is not a chat-user API. Routes
+require the host-provided username and return `Cache-Control: no-store`.
+All database queries still run in Rust, with fixed projections, bound parameters
+and bounded pagination. Purged event bodies are never reconstructed. No SQL,
+database download or filesystem path is accepted from the page.
+
 - data-at-rest encryption and cryptographic key destruction are not implemented;
 - filesystem snapshots, third-party backups, and SSD wear levelling are outside
   the logical purge guarantee;

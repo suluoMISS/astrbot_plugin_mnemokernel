@@ -221,6 +221,8 @@ pub struct KernelStore {
     connection: Mutex<Connection>,
 }
 
+mod inspector;
+
 impl KernelStore {
     pub fn open(path: &Path) -> Result<Self, StoreError> {
         let connection = migrations::open_database(path)?;
@@ -1867,6 +1869,80 @@ mod tests {
             std::process::id(),
             unix_time().as_nanos()
         ))
+    }
+
+    #[test]
+    fn inspector_is_scoped_paginated_and_respects_purge() {
+        use super::inspector::InspectRequest;
+        let path = temporary_database("inspector");
+        let store = KernelStore::open(&path).unwrap();
+        let first = event("visible message");
+        let result = store.ingest_event(&first).unwrap();
+        let second = event_with("second", "second message", 2);
+        let second_result = store.ingest_event(&second).unwrap();
+        let mut other = event("other scope secret");
+        other.scope.session_id = "other".into();
+        store.ingest_event(&other).unwrap();
+        let day = journal_request(first.scope.clone());
+        let proposal = journal_proposal(&day, vec![result.event_id, second_result.event_id]);
+        store.save_journal(&day, &proposal, "{}").unwrap();
+        let mut request = InspectRequest {
+            collection: "events".into(),
+            scope_id: result.scope_id,
+            query: "".into(),
+            offset: 0,
+            limit: 1,
+        };
+        let page = store.inspect(&request).unwrap();
+        assert_eq!(page["total"], 2);
+        assert_eq!(page["items"].as_array().unwrap().len(), 1);
+        assert_eq!(page["items"][0]["content"], "second message");
+        request.offset = 1;
+        assert_eq!(
+            store.inspect(&request).unwrap()["items"][0]["content"],
+            "visible message"
+        );
+        request.offset = 0;
+        request.query = "' OR 1=1 --".into();
+        assert_eq!(store.inspect(&request).unwrap()["total"], 0);
+        request.query.clear();
+        for (collection, count) in [
+            ("scopes", 2),
+            ("memories", 2),
+            ("journals", 1),
+            ("recalls", 0),
+        ] {
+            request.collection = collection.into();
+            assert_eq!(store.inspect(&request).unwrap()["total"], count);
+        }
+        request.collection = "sqlite_master".into();
+        assert!(store.inspect(&request).is_err());
+        request.collection = "events".into();
+        request.limit = 51;
+        assert!(store.inspect(&request).is_err());
+        request.limit = 20;
+        store
+            .purge_scope(&PurgeScopeRequest {
+                protocol: PROTOCOL_VERSION.into(),
+                scope: first.scope,
+                actor_id: "user".into(),
+                reason: "inspector test".into(),
+            })
+            .unwrap();
+        let page = store.inspect(&request).unwrap();
+        assert!(
+            page["items"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|row| row["content"].is_null())
+        );
+        for collection in ["journals", "memories"] {
+            request.collection = collection.into();
+            assert_eq!(store.inspect(&request).unwrap()["total"], 0);
+        }
+        drop(store);
+        let _ = fs::remove_file(path);
     }
 
     fn event(content: &str) -> RawEventInput {

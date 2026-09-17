@@ -98,6 +98,9 @@ class MnemoKernelPlugin(Star):
         self._forget_confirmations: dict[str, float] = {}
         self._journal_tasks: dict[str, asyncio.Task[None]] = {}
         self._journal_attempted: set[str] = set()
+        self._database_path: Path | None = None
+        from .mnemokernel_adapter.pages import register_pages
+        self._pages = register_pages(context, self)
 
     async def initialize(self) -> None:
         if not self._cfg.enabled:
@@ -107,6 +110,7 @@ class MnemoKernelPlugin(Star):
         data_dir = Path(StarTools.get_data_dir())
         await asyncio.to_thread(data_dir.mkdir, parents=True, exist_ok=True)
         database = data_dir / self._cfg.database_filename
+        self._database_path = database.resolve()
         self._kernel = await asyncio.to_thread(KernelClient.open, database)
         if self._kernel.available:
             capabilities = self._kernel.status.capabilities

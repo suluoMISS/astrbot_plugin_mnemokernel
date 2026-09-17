@@ -50,6 +50,12 @@ impl Kernel {
         serde_json::to_string(&health).map_err(json_error)
     }
 
+    fn inspect_json(&self, payload: &str) -> PyResult<String> {
+        let request = serde_json::from_str(payload).map_err(json_error)?;
+        let result = self.store()?.inspect(&request).map_err(store_error)?;
+        serde_json::to_string(&result).map_err(json_error)
+    }
+
     fn ingest_event_json(&self, payload: &str) -> PyResult<String> {
         let event: RawEventInput = serde_json::from_str(payload).map_err(json_error)?;
         event.validate().map_err(validation_error)?;

@@ -42,6 +42,11 @@ def install_astrbot_shell(data_directory: Path) -> list[Any]:
     api = types.ModuleType("astrbot.api")
     event = types.ModuleType("astrbot.api.event")
     star = types.ModuleType("astrbot.api.star")
+    web = types.ModuleType("astrbot.api.web")
+    web.request = types.SimpleNamespace(username="smoke-admin", query={})
+    web.json_response = lambda data, **kwargs: (data, kwargs.get("status_code", 200))
+    api.web = web
+    sys.modules["astrbot.api.web"] = web
     core = types.ModuleType("astrbot.core")
     agent = types.ModuleType("astrbot.core.agent")
     agent_tool = types.ModuleType("astrbot.core.agent.tool")
@@ -59,6 +64,13 @@ def install_astrbot_shell(data_directory: Path) -> list[Any]:
     context_tools: list[Any] = []
 
     class Context:
+        def __init__(self):
+            self.web_routes = {}
+
+        def register_web_api(self, route, handler, methods, desc):
+            assert methods == ["GET"]
+            self.web_routes[route] = handler
+
         def add_llm_tools(self, *tools: Any) -> None:
             context_tools.extend(tools)
 
@@ -242,6 +254,19 @@ async def exercise(package_directory: Path, data_directory: Path) -> None:
     assert "日记已生成" in summary
     journal = await plugin._read_journal(event, journal_date)
     assert "Package smoke journal" in journal
+    assert plugin._pages is not None
+    status, code = await plugin._pages.status()
+    assert code == 200 and status["inspector_available"]
+    scopes, code = await plugin._pages.browse()
+    assert code == 200 and scopes["total"] == 1
+    web = sys.modules["astrbot.api.web"]
+    web.request.query = {"collection": "memories", "scope_id": scopes["items"][0]["scope_id"]}
+    memories, code = await plugin._pages.browse()
+    assert code == 200 and memories["total"] == 1
+    web.request.username = None
+    _, code = await plugin._pages.browse()
+    assert code == 401
+    web.request.username = "smoke-admin"
     recall = await plugin._recollect_text(
         event,
         need_type="fact",

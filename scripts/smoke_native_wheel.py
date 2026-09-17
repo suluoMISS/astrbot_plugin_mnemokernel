@@ -214,6 +214,12 @@ def main() -> int:
         )
         assert stats["active_memories"] == 2
 
+        scopes = json.loads(kernel.inspect_json(json.dumps({"collection": "scopes", "limit": 20})))
+        assert len(scopes["items"]) == 1
+        scope_id = scopes["items"][0]["scope_id"]
+        inspection = {"collection": "memories", "scope_id": scope_id, "limit": 20}
+        assert json.loads(kernel.inspect_json(json.dumps(inspection)))["total"] == 2
+
         purge_request = {
             "protocol": "mnemokernel.v1",
             "scope": scope,
@@ -224,6 +230,10 @@ def main() -> int:
         assert purged["status"] == "ok"
         assert purged["purged_payloads"] == 1
         assert purged["compacted"] is True
+        assert json.loads(kernel.inspect_json(json.dumps(inspection)))["total"] == 0
+        inspection["collection"] = "events"
+        cleared_events = json.loads(kernel.inspect_json(json.dumps(inspection)))
+        assert all(item["content"] is None for item in cleared_events["items"])
         blocked_pause = json.loads(
             kernel.set_capture_policy_json(
                 json.dumps(

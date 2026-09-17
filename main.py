@@ -34,7 +34,7 @@ from .mnemokernel_adapter.events import scope_from_event
 from .mnemokernel_adapter.scheduling import due_journal_date
 
 
-VERSION = "v0.1.0"
+VERSION = "v0.1.1"
 BUILTIN_TIMEZONE_OFFSETS = {
     "UTC": 0,
     "Asia/Shanghai": 8,

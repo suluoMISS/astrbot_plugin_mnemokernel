@@ -49,10 +49,10 @@ and verifies that a closed kernel rejects further calls.
 
 An earlier Schema 2 development baseline produced and imported:
 
-    mnemokernel_native-0.1.0a1-cp310-abi3-manylinux_2_34_x86_64.whl
+    mnemokernel_native-0.1.1-cp310-abi3-manylinux_2_34_x86_64.whl
 
 That wheel predates the current Schema 4 sources and must not be shipped. The
-current 0.1.0 wheel is generated under dist/native-current. The release ZIP
+current 0.1.1 wheel is generated under dist/native-current. The release ZIP
 bundles the ABI3 runtime extracted from that wheel, so AstrBot does not need to
 install a local requirement during plugin upload.
 

@@ -2,16 +2,16 @@
 
 MnemoKernel 是一个面向 AstrBot 的长期记忆插件。它不把检索结果自动塞进每轮上下文，而是把记忆分成“线索、申请、重建、证据简报”四个阶段：模型只能申请回忆，可信内核负责决定范围、预算、证据和可见性。
 
-当前版本：`v0.1.0`（Linux/Windows x86_64 可安装稳定版）
+当前版本：`v0.1.1`（Linux/Windows x86_64 可安装稳定版）
 
-### 本地开发新增：插件页面
+### 记忆浏览插件页面
 
 支持 Plugin Pages 的 AstrBot 版本可从「插件 → 忆核详情 → 插件页面 → 记忆浏览」打开数据浏览页。
 新增页面目录后需要重新加载插件。页面显示数据库在 AstrBot 主机上的路径、内核与采集状态，
 支持按会话浏览和搜索稳定记忆、日记、采集记录和回忆记录，每页 20 条。
 只有登录 AstrBot 管理面板的管理员可使用，聊天用户的回忆权限不会因此扩大。
 
-本功能需要与源码一起重建的新原生内核；已有 v0.1.0 wheel 不包含浏览接口。
+本功能需要与源码一起重建的新原生内核；已有 v0.1.0 wheel 不包含浏览接口，升级时请安装完整的 v0.1.1 平台 ZIP。
 仅复制 HTML/Python 文件时，页面会提示升级完整安装包，不会绕过内核直接读取 SQLite。
 旧 AstrBot 不支持页面接口时，原有聊天命令继续工作。
 
@@ -39,7 +39,7 @@ MnemoKernel 是一个面向 AstrBot 的长期记忆插件。它不把检索结�
 - `/mnemo stats`、`/mnemo maintain`：查看作用域统计、按保留期清理过期正文；
 - 日记 claim（含 `preference`）会通过稳定指纹物化为带证据的记忆卡；完全相同的 claim 只强化原卡，不产生副本；
 - Python/Rust 之间的 JSON v1 协议与 JSON Schema；
-- 0.1.0 已通过 37 项 Python 测试、24 项 Rust 测试、Rustfmt、Clippy、Windows wheel 完整烟测、Linux wheel 交叉构建与两平台发布 ZIP 内容验收。
+- 0.1.1 已通过 44 项 Python 测试、25 项 Rust 测试、Rustfmt、Clippy、页面交互测试、Windows wheel 原生烟测、Linux wheel 交叉构建与两平台安装包 smoke test。
 
 当前阶段不会把日记或 RAG 文本自动注入模型；模型只能提交候选提案，不能直接修改正式记忆。
 
@@ -75,13 +75,13 @@ docs/adr/                       架构决策记录
 - 回忆深度分别限制为 `glance=1/420 字`、`focused=2/620 字`、`deep=3/800 字`，只返回带事件证据 ID 的简报；
 - `/mnemo forget` 的确认只保存在进程内，并同时绑定作用域和真实操作者；Rust 清除会同步删除稳定记忆、边和审计记录。
 
-## 安装 0.1.0
+## 安装 0.1.1
 
 当前可安装包面向 Linux x86_64 或 Windows x86_64、Python 3.10 及以上：
 
 1. 在 AstrBot 插件管理中上传与系统匹配的 ZIP：
-   - Linux：`astrbot_plugin_mnemokernel-v0.1.0-linux-x86_64.zip`；
-   - Windows：`astrbot_plugin_mnemokernel-v0.1.0-windows-x86_64.zip`；
+   - Linux：`astrbot_plugin_mnemokernel-v0.1.1-linux-x86_64.zip`；
+   - Windows：`astrbot_plugin_mnemokernel-v0.1.1-windows-x86_64.zip`；
 2. 压缩包内已直接携带 ABI3 原生运行时，正常情况下不需要 AstrBot 安装任何 pip 依赖；`native/` 下的 wheel 仅作为手动安装和诊断备用件；
 3. 重载插件，先执行 `/mnemo doctor`；确认 Schema 为 4、三项能力均为 `true` 后，再按需打开采集、日记和回忆开关。
 
@@ -112,4 +112,4 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 `recall_ready=true` 表示按需回忆的 native 检索闭环可用，但仍需在配置中显式打开
 `recall.enabled` 才会注册工具。
 
-真实 AstrBot 收发钩子、模型调用判断和插件卸载仍建议在个人实例中做最终验收；0.1.0 保持保守记忆策略，不用未经证据支持的相似度启发式覆盖个人事实。
+真实 AstrBot 收发钩子、模型调用判断和插件卸载仍建议在个人实例中做最终验收；0.1.1 保持保守记忆策略，不用未经证据支持的相似度启发式覆盖个人事实。

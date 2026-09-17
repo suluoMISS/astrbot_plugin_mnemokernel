@@ -166,7 +166,7 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "mnemokernel-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "hex",
  "serde",
@@ -177,7 +177,7 @@ dependencies = [
 
 [[package]]
 name = "mnemokernel-py"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "mnemokernel-core",
  "mnemokernel-store",
@@ -187,7 +187,7 @@ dependencies = [
 
 [[package]]
 name = "mnemokernel-store"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "hex",
  "mnemokernel-core",

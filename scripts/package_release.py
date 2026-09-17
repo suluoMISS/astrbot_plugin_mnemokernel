@@ -12,7 +12,7 @@ from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_NAME = "astrbot_plugin_mnemokernel"
-VERSION = "v0.1.0"
+VERSION = "v0.1.1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,7 +25,7 @@ class ReleaseProfile:
 
 RELEASE_PROFILES = (
     ReleaseProfile(
-        wheel_prefix="mnemokernel_native-0.1.0-cp310-abi3-manylinux_2_34_x86_64",
+        wheel_prefix="mnemokernel_native-0.1.1-cp310-abi3-manylinux_2_34_x86_64",
         archive_suffix="linux-x86_64",
         platform_label="Linux x86_64",
         bundled_native_members=(
@@ -34,7 +34,7 @@ RELEASE_PROFILES = (
         ),
     ),
     ReleaseProfile(
-        wheel_prefix="mnemokernel_native-0.1.0-cp310-abi3-win_amd64",
+        wheel_prefix="mnemokernel_native-0.1.1-cp310-abi3-win_amd64",
         archive_suffix="windows-x86_64",
         platform_label="Windows x86_64",
         bundled_native_members=(
@@ -134,7 +134,7 @@ def main() -> int:
     wheel_copy = output / wheel.name
 
     install_note = (
-        f"MnemoKernel 0.1.0 release target: {profile.platform_label}, Python >= 3.10.\n"
+        f"MnemoKernel 0.1.1 release target: {profile.platform_label}, Python >= 3.10.\n"
         "Upload this ZIP in AstrBot. The ABI3 runtime is bundled under "
         "native_runtime/, so AstrBot does not need to install plugin requirements.\n"
         "The wheel under native/ is retained as a manual-install and diagnostic artifact.\n"

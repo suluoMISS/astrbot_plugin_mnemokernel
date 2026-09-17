@@ -40,7 +40,7 @@ database download or filesystem path is accepted from the page.
 - stable memory cards are materialized from validated journal claims; semantic
   supersession remains proposal-only and never uses an untrusted heuristic to
   overwrite a personal fact;
-- wheel signing and hosted CI are not included in the local 0.1.0 release gate;
+- wheel signing and hosted CI are not included in the local 0.1.1 release gate;
   both Linux and Windows wheels are built and smoke-tested locally.
 
 Do not enable event capture for highly sensitive conversations until encryption,

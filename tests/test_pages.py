@@ -72,5 +72,6 @@ class PageTests(unittest.IsolatedAsyncioTestCase):
     def test_release_includes_page_assets(self):
         names = {str(name) for name, _ in source_files()}
         for name in ("pages/memory/index.html", "pages/memory/app.js", "pages/memory/style.css",
-                     ".astrbot-plugin/i18n/zh-CN.json", "mnemokernel_adapter/pages.py"):
+                     ".astrbot-plugin/i18n/zh-CN.json", "mnemokernel_adapter/pages.py",
+                     "requirements.txt"):
             self.assertIn(name, names)

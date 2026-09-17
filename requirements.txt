@@ -1,0 +1,5 @@
+# AstrBot installs plugin dependencies from this file for source/GitHub installs.
+# The release ZIP also contains the same wheel locally and repairs missing
+# native_runtime files without requiring a network request at plugin startup.
+mnemokernel-native @ https://github.com/suluoMISS/astrbot_plugin_mnemokernel/releases/download/v0.1.1/mnemokernel_native-0.1.1-cp310-abi3-manylinux_2_34_x86_64.whl ; sys_platform == "linux" and platform_machine == "x86_64"
+mnemokernel-native @ https://github.com/suluoMISS/astrbot_plugin_mnemokernel/releases/download/v0.1.1/mnemokernel_native-0.1.1-cp310-abi3-win_amd64.whl ; sys_platform == "win32" and platform_machine == "AMD64"

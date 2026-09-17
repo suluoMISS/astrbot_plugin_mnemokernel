@@ -9,10 +9,14 @@ from __future__ import annotations
 
 import importlib
 import json
+import platform
 import sys
+import tempfile
 import threading
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from pathlib import PurePosixPath
 from types import ModuleType
 from typing import Any, Mapping
 
@@ -34,6 +38,87 @@ class KernelUnavailableError(RuntimeError):
     pass
 
 
+def _module_supports_inspector(module: ModuleType | None) -> bool:
+    kernel_type = getattr(module, "Kernel", None)
+    return callable(getattr(kernel_type, "inspect_json", None))
+
+
+def _import_runtime(runtime_dir: Path) -> ModuleType:
+    """Import one runtime directory while bypassing stale module cache."""
+    cached_module = sys.modules.get("_mnemokernel")
+    runtime_root = runtime_dir.resolve()
+    cached_file = getattr(cached_module, "__file__", None)
+    cached_from_runtime = False
+    if cached_file:
+        try:
+            Path(cached_file).resolve().relative_to(runtime_root)
+            cached_from_runtime = True
+        except (OSError, ValueError):
+            pass
+    if cached_module is not None and (
+        not cached_from_runtime or not _module_supports_inspector(cached_module)
+    ):
+        sys.modules.pop("_mnemokernel", None)
+
+    runtime_path = str(runtime_dir)
+    sys.path.insert(0, runtime_path)
+    importlib.invalidate_caches()
+    try:
+        module = importlib.import_module("_mnemokernel")
+        if not _module_supports_inspector(module):
+            raise ImportError("bundled native module has no inspector interface")
+        return module
+    except (ImportError, OSError):
+        sys.modules.pop("_mnemokernel", None)
+        if cached_module is not None:
+            sys.modules["_mnemokernel"] = cached_module
+        raise
+    finally:
+        try:
+            sys.path.remove(runtime_path)
+        except ValueError:
+            pass
+
+
+def _extract_bundled_wheel() -> Path | None:
+    """Extract a platform wheel bundled in a release ZIP for self-repair."""
+    root = Path(__file__).resolve().parents[1]
+    native_dir = root / "native"
+    if not native_dir.is_dir():
+        return None
+    machine = platform.machine().lower()
+    if sys.platform == "win32" and machine in {"amd64", "x86_64"}:
+        pattern = "*-win_amd64.whl"
+    elif sys.platform == "linux" and machine in {"x86_64", "amd64"}:
+        pattern = "*-manylinux_2_34_x86_64.whl"
+    else:
+        return None
+    wheels = sorted(native_dir.glob(pattern))
+    if len(wheels) != 1:
+        return None
+    repaired = Path(tempfile.mkdtemp(prefix="mnemokernel-native-repair-"))
+    try:
+        with zipfile.ZipFile(wheels[0]) as archive:
+            for member in archive.infolist():
+                name = PurePosixPath(member.filename)
+                if (
+                    name.is_absolute()
+                    or ".." in name.parts
+                    or not name.parts
+                    or name.parts[0] != "_mnemokernel"
+                    or member.is_dir()
+                ):
+                    continue
+                destination = repaired.joinpath(*name.parts)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(archive.read(member))
+    except (OSError, zipfile.BadZipFile):
+        return None
+    if not (repaired / "_mnemokernel" / "__init__.py").is_file():
+        return None
+    return repaired
+
+
 def _load_native_module() -> ModuleType:
     """Load the bundled release runtime, or the installed extension.
 
@@ -47,39 +132,16 @@ def _load_native_module() -> ModuleType:
     runtime_dir = Path(__file__).resolve().parents[1] / "native_runtime"
     bundled_error: Exception | None = None
     if runtime_dir.is_dir():
-        # AstrBot can reload a plugin in the same interpreter.  In that case
-        # an extension imported by the previous plugin version may still be
-        # cached under the same module name, and importlib would return it
-        # without consulting the bundled runtime path.  Evict only a cached
-        # module that came from elsewhere; restore it if the bundled import
-        # fails so the normal installed-extension fallback remains intact.
-        cached_module = sys.modules.get("_mnemokernel")
-        runtime_root = runtime_dir.resolve()
-        cached_file = getattr(cached_module, "__file__", None)
-        cached_from_runtime = False
-        if cached_file:
-            try:
-                Path(cached_file).resolve().relative_to(runtime_root)
-                cached_from_runtime = True
-            except (OSError, ValueError):
-                pass
-        if cached_module is not None and not cached_from_runtime:
-            sys.modules.pop("_mnemokernel", None)
-        runtime_path = str(runtime_dir)
-        sys.path.insert(0, runtime_path)
-        importlib.invalidate_caches()
         try:
-            return importlib.import_module("_mnemokernel")
+            return _import_runtime(runtime_dir)
         except (ImportError, OSError) as exc:
             bundled_error = exc
-            sys.modules.pop("_mnemokernel", None)
-            if cached_module is not None:
-                sys.modules["_mnemokernel"] = cached_module
-        finally:
-            try:
-                sys.path.remove(runtime_path)
-            except ValueError:
-                pass
+    repaired_runtime = _extract_bundled_wheel()
+    if repaired_runtime is not None:
+        try:
+            return _import_runtime(repaired_runtime)
+        except (ImportError, OSError) as exc:
+            bundled_error = exc
 
     try:
         return importlib.import_module("_mnemokernel")
@@ -118,8 +180,14 @@ class KernelStatus:
 class KernelClient:
     """Small, synchronized wrapper around the PyO3 Kernel object."""
 
-    def __init__(self, native: Any | None, status: KernelStatus):
+    def __init__(
+        self,
+        native: Any | None,
+        status: KernelStatus,
+        native_module: ModuleType | None = None,
+    ):
         self._native = native
+        self._native_module = native_module
         self._status = status
         self._lock = threading.RLock()
 
@@ -155,6 +223,7 @@ class KernelClient:
                     protocol=str(health.get("protocol") or "unknown"),
                     capabilities=KernelCapabilities.from_mapping(health.get("capabilities")),
                 ),
+                native_module=module,
             )
         except Exception as exc:  # Import, ABI, migration, or database failure.
             if native is not None and hasattr(native, "close"):
@@ -276,6 +345,12 @@ class KernelClient:
         with self._lock:
             return self.available and callable(getattr(self._native, "inspect_json", None))
 
+    @property
+    def native_module_path(self) -> str | None:
+        with self._lock:
+            path = getattr(self._native_module, "__file__", None)
+            return str(Path(path).resolve()) if path else None
+
     def inspect(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
         with self._lock:
             native = self._require_native()
@@ -293,6 +368,7 @@ class KernelClient:
                 # Even a broken native destructor must not leave the Python
                 # shell believing that memory operations are still available.
                 self._native = None
+                self._native_module = None
                 self._status = KernelStatus(
                     available=False,
                     detail="native kernel closed",

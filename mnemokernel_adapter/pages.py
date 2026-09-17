@@ -54,6 +54,7 @@ class InspectorPage:
             "enabled": plugin._cfg.enabled,
             "available": bool(kernel and kernel.available),
             "inspector_available": bool(kernel and kernel.inspector_available),
+            "native_module_path": kernel.native_module_path if kernel else None,
             "database_path": str(plugin._database_path) if plugin._database_path else None,
             "capture_enabled": plugin._cfg.capture.enabled,
             "diary_enabled": plugin._cfg.diary.enabled,

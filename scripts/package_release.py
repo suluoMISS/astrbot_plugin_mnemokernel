@@ -53,6 +53,7 @@ ROOT_FILES = (
     "README.md",
     "SECURITY.md",
     "CHANGELOG.md",
+    "requirements.txt",
     "LICENSE",
 )
 TREE_PATTERNS = (

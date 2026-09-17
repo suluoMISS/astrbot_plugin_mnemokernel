@@ -776,6 +776,8 @@ class MnemoKernelPlugin(Star):
             f"  原生内核：{health.get('status', 'unknown')}\n"
             f"  协议：{health.get('protocol', 'unknown')}\n"
             f"  数据库 Schema：{health.get('schema_version', 'unknown')}\n"
+            f"  数据库浏览：{'可用' if self._kernel.inspector_available else '不可用'}\n"
+            f"  原生模块：{self._kernel.native_module_path or 'unknown'}\n"
             "  能力："
             f"capture={capabilities.capture_ready} "
             f"episode={capabilities.episode_ready} recall={capabilities.recall_ready}\n"

@@ -5,5 +5,5 @@ version: v0.1.1
 astrbot_version: ">=4.5.7,<5"
 author: suluo
 desc: MnemoKernel（忆核）——证据驱动、按需回忆、受约束演化的 AstrBot 长期记忆内核
-repo: ""
+repo: https://github.com/suluoMISS/astrbot_plugin_mnemokernel
 

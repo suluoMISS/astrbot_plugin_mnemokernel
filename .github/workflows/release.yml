@@ -1,0 +1,73 @@
+name: Publish release packages
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  PYO3_BUILD_EXTENSION_MODULE: "1"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: mnemokernel-release-ubuntu-latest
+          - os: windows-latest
+            artifact: mnemokernel-release-windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.97.1 --profile minimal
+      - name: Select pinned Rust toolchain
+        run: rustup override set 1.97.1
+      - name: Install Maturin
+        run: python -m pip install "maturin==1.14.1"
+      - name: Build ABI3 wheel
+        working-directory: rust/crates/mnemokernel-py
+        run: maturin build --release --locked --out ../../../dist/native
+      - name: Smoke-test native wheel
+        run: python scripts/smoke_native_wheel.py dist/native
+      - name: Build AstrBot upload package
+        shell: bash
+        run: |
+          wheel=$(find dist/native -maxdepth 1 -name '*.whl' -print -quit)
+          python scripts/package_release.py "$wheel" dist/release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/release/*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: MnemoKernel ${{ github.ref_name }} — Linux / Windows 可安装版
+          body: |
+            # MnemoKernel ${{ github.ref_name }}
+
+            本版本包含数据库浏览页面、v0.1.0 Schema 4 数据兼容、原生运行时热重载修复，以及 Linux/Windows x86_64 平台包。
+
+            请根据 AstrBot 运行平台选择对应的 `astrbot_plugin_mnemokernel-*.zip`。完整 ZIP 内含匹配平台的原生运行时和 wheel，安装时会校验并自动修复缺失的 runtime 文件。
+          files: |
+            dist/mnemokernel-release-ubuntu-latest/*
+            dist/mnemokernel-release-windows-latest/*

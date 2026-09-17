@@ -134,18 +134,18 @@ def _load_native_module() -> ModuleType:
     if runtime_dir.is_dir():
         try:
             return _import_runtime(runtime_dir)
-        except (ImportError, OSError) as exc:
+        except Exception as exc:
             bundled_error = exc
     repaired_runtime = _extract_bundled_wheel()
     if repaired_runtime is not None:
         try:
             return _import_runtime(repaired_runtime)
-        except (ImportError, OSError) as exc:
+        except Exception as exc:
             bundled_error = exc
 
     try:
         return importlib.import_module("_mnemokernel")
-    except (ImportError, OSError) as installed_error:
+    except Exception as installed_error:
         sys.modules.pop("_mnemokernel", None)
         if bundled_error is not None:
             raise bundled_error from installed_error

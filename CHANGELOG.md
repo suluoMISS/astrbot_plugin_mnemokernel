@@ -23,6 +23,7 @@
 
 ### 升级说明
 
+- 修复旧进程或残缺原生包导入时出现 `NameError: name '_mnemokernel' is not defined` 后未继续自动修复的问题。
 - 必须安装完整的 `v0.1.1` 平台 ZIP；只替换 HTML 或 Python 文件不会获得新的原生浏览接口。
 - v0.1.0 的 Schema 4 数据无需删除或手工迁移；v0.1.1 会沿用并校验现有数据库。
 - 安装或热重载时若发现旧的 `_mnemokernel`，优先切换到包内 runtime；若 `native_runtime` 缺失，则从包内匹配平台 wheel 自动修复。

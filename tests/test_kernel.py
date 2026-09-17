@@ -1,6 +1,9 @@
 import json
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+
+import mnemokernel_adapter.kernel as kernel_module
 
 from mnemokernel_adapter.kernel import KernelClient, KernelUnavailableError
 from mnemokernel_adapter.models import (
@@ -227,6 +230,19 @@ def raw_event():
 
 
 class KernelTests(unittest.TestCase):
+    def test_native_loader_recovers_from_broken_cached_runtime(self):
+        with (
+            patch.object(kernel_module.Path, "is_dir", return_value=True),
+            patch.object(
+                kernel_module,
+                "_import_runtime",
+                side_effect=NameError("name '_mnemokernel' is not defined"),
+            ),
+            patch.object(kernel_module, "_extract_bundled_wheel", return_value=None),
+            patch.object(kernel_module.importlib, "import_module", return_value=HealthyNativeModule),
+        ):
+            self.assertIs(kernel_module._load_native_module(), HealthyNativeModule)
+
     def test_healthy_native_bridge(self):
         client = KernelClient.open(Path("db.sqlite3"), native_module=HealthyNativeModule)
         self.assertTrue(client.available)

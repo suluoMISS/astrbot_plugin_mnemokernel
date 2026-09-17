@@ -117,6 +117,7 @@ class MnemoKernelPlugin(Star):
             logger.info(
                 f"[mnemokernel] {VERSION} 原生内核就绪 "
                 f"protocol={self._kernel.status.protocol} "
+                f"inspector={self._kernel.inspector_available} "
                 f"capture={capabilities.capture_ready} episode={capabilities.episode_ready} "
                 f"recall={capabilities.recall_ready}"
             )

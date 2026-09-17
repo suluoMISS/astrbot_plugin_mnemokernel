@@ -47,6 +47,24 @@ def _load_native_module() -> ModuleType:
     runtime_dir = Path(__file__).resolve().parents[1] / "native_runtime"
     bundled_error: Exception | None = None
     if runtime_dir.is_dir():
+        # AstrBot can reload a plugin in the same interpreter.  In that case
+        # an extension imported by the previous plugin version may still be
+        # cached under the same module name, and importlib would return it
+        # without consulting the bundled runtime path.  Evict only a cached
+        # module that came from elsewhere; restore it if the bundled import
+        # fails so the normal installed-extension fallback remains intact.
+        cached_module = sys.modules.get("_mnemokernel")
+        runtime_root = runtime_dir.resolve()
+        cached_file = getattr(cached_module, "__file__", None)
+        cached_from_runtime = False
+        if cached_file:
+            try:
+                Path(cached_file).resolve().relative_to(runtime_root)
+                cached_from_runtime = True
+            except (OSError, ValueError):
+                pass
+        if cached_module is not None and not cached_from_runtime:
+            sys.modules.pop("_mnemokernel", None)
         runtime_path = str(runtime_dir)
         sys.path.insert(0, runtime_path)
         importlib.invalidate_caches()
@@ -55,6 +73,8 @@ def _load_native_module() -> ModuleType:
         except (ImportError, OSError) as exc:
             bundled_error = exc
             sys.modules.pop("_mnemokernel", None)
+            if cached_module is not None:
+                sys.modules["_mnemokernel"] = cached_module
         finally:
             try:
                 sys.path.remove(runtime_path)

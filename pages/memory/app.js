@@ -62,11 +62,11 @@ async function refresh() {
   scopeSerial++; clearRecords('正在检查状态…'); $('scope').replaceChildren();
   try {
     const status = await bridge.apiGet('inspector/status');
-    $('status').textContent = `内核${status.available ? '就绪' : '未就绪'} · 采集${status.capture_enabled ? '已开启' : '未开启'} · 日记${status.diary_enabled ? '已开启' : '未开启'} · 回忆${status.recall_enabled ? '已开启' : '未开启'} · 采集异常 ${status.capture_errors} 次`;
+    $('status').textContent = `内核${status.available ? '就绪' : '未就绪'} · 浏览接口${status.inspector_available ? '可用' : '不可用'} · 采集${status.capture_enabled ? '已开启' : '未开启'} · 日记${status.diary_enabled ? '已开启' : '未开启'} · 回忆${status.recall_enabled ? '已开启' : '未开启'} · 采集异常 ${status.capture_errors} 次`;
     $('database').textContent = status.database_path ? `数据库位置（AstrBot 运行主机）：${status.database_path}` : '插件尚未打开数据库。';
     if (!status.enabled) throw new Error('插件已在配置中停用。');
     if (!status.available) throw new Error('原生内核未就绪，请检查插件日志，并安装匹配操作系统的安装包。');
-    if (!status.inspector_available) throw new Error('当前原生内核不支持浏览，请升级包含新内核的完整安装包。');
+    if (!status.inspector_available) throw new Error('当前进程加载的原生内核没有数据库浏览接口。请重载插件；若仍不可用，请完全重启 AstrBot 后再打开页面。');
     await loadScopes();
   } catch(error) { showError(error); }
   finally { $('refresh').disabled = false; }
